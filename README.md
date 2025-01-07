@@ -13,6 +13,11 @@ The solution consists of the following components:
 - A Lambda function to extract metadata from the PDF documents
 - A Lambda function to generate embeddings from the PDF documents
 - An SQS queue to store the PDF document processing requests
+
+The following diagram shows the architecture of the embedding solution:
+
+![embedding-solution](https://github.com/user-attachments/assets/91b85eb6-7b01-452c-ac56-91c0988f46ea)
+
   
 The embedding process is summarized below:
 
