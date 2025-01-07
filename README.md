@@ -26,3 +26,6 @@ The embedding process is summarized below:
 3. The GenerateEmbeddings Lambda function reads the message from the SQS queue and generates embeddings from the PDF document using LangChain and Amazon Bedrock. The embeddings are stored in the same S3 bucket.
 
 We will use the AWS SAM CLI configured with the _samconfig.toml_ file to deploy the embedding application.
+```
+sam deploy --resolve-image-repos
+```
