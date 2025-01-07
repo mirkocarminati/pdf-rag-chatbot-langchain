@@ -3,7 +3,7 @@ Deploying a PDF chatbot that uses retrieval-augmented generation to answer promp
 
 ## Solution Overview
 
-This project deploya the PDF embedding solution using AWS SAM. At a high level, the solution extracts metadata from PDF documents and generates embeddings using LangChain and Amazon Bedrock.
+This project deploys the PDF embedding solution using AWS SAM. At a high level, the solution extracts metadata from PDF documents and generates embeddings using LangChain and Amazon Bedrock.
 The PDF chatbot application will use the embeddings to answer user prompts based on the content of the PDF documents.
 
 The solution consists of the following components:
