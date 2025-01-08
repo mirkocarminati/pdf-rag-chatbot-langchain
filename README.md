@@ -29,3 +29,18 @@ We will use the AWS SAM CLI configured with the _samconfig.toml_ file to deploy 
 ```
 sam deploy --resolve-image-repos
 ```
+
+## Chatbot Application Overview
+
+The application code has already been built and packaged into a Docker image. The Docker image will be deployed to an Amazon ECS Service using the AWS Serverless Application Model (SAM) CLI.
+
+The _Main.py_ file contains the Streamlit application code that will be deployed to the ECS Service. The streamlit framework is used to render the user interface and interact with the chatbot application.
+
+The LangChain methods used in the application include:
+
+- LangChain Hub: opens in a new tab: a version control system for LLM prompts. You can import prompts to use in your applications. 
+- BedrockLLM: LangChain BedrockLLM is used to generate responses for the chatbot. The amazon.titan-text-express-v1 model will be used to generate text responses for the chatbot.
+- BedrockEmbeddings: this class generates embeddings for the uploaded PDF documents, the amazon.titan-embed-text-v1 model will be used to generate embeddings for the uploaded documents.
+- FAISS: this class is used as the vector store to store the embeddings and create the index. FAISS is a library for efficient similarity search and clustering of dense vectors.
+- ConversationalRetrievalChain: a conversational retrieval chain uses a vector store to represent the documents in the embedding space and uses a retrieval model to retrieve the most relevant documents based on the query.
+- LangChain Debugging: setting the set_debug method to True will enable debugging mode for the LangChain framework.
