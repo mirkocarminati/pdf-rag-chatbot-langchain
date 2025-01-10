@@ -44,3 +44,13 @@ The LangChain methods used in the application include:
 - FAISS: this class is used as the vector store to store the embeddings and create the index. FAISS is a library for efficient similarity search and clustering of dense vectors.
 - ConversationalRetrievalChain: a conversational retrieval chain uses a vector store to represent the documents in the embedding space and uses a retrieval model to retrieve the most relevant documents based on the query.
 - LangChain Debugging: setting the set_debug method to True will enable debugging mode for the LangChain framework.
+
+The _generate_chat_ function contains the main logic for the chatbot application. This function employs the retrieval-augmented generation technique to generate responses for the chatbot. It accepts a user prompt and a file_name to begin the conversation. The function performs the following steps:
+
+- The embedding solution creates a folder with the index files for each document. The index files generated for the uploaded PDF documents are loaded into memory.
+- The BedrockLLM is initialized with the _amazon.titan-text-express-v1_ model and AWS credentials. The Docker image used to deploy this application will have IAM roles attached to it through the Amazon ECS task role, removing the need to hardcode the AWS credentials.
+- The BedrockEmbeddings class is initialized with _the amazon.titan-embed-text-v1 model_. This embeddings object will be used to embed user prompts.
+- The _index.faiss_ and _index.pkl_ files are loaded into a FAISS index object. The object can then be used as a retriever to fetch documents from the index vector store relevant to the user prompt.
+- The _hub.pull_ method is used to pull the RAG prompt from the LangChain Hub. The rlm/rag-prompt, opens in a new tab is used to generate responses for the chatbot.
+- The ConversationalRetrievalChain is initialized with the llm, retriever, and rag_prompt. The _return_source_documents_ parameter is set to False to return the generated response only.
+- The conversation chain is invoked by passing in the question and chat_history arguments. Chat history is used to maintain the context of the conversation.
