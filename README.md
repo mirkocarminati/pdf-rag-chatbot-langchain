@@ -54,3 +54,6 @@ The _generate_chat_ function contains the main logic for the chatbot application
 - The _hub.pull_ method is used to pull the RAG prompt from the LangChain Hub. The rlm/rag-prompt, opens in a new tab is used to generate responses for the chatbot.
 - The ConversationalRetrievalChain is initialized with the llm, retriever, and rag_prompt. The _return_source_documents_ parameter is set to False to return the generated response only.
 - The conversation chain is invoked by passing in the question and chat_history arguments. Chat history is used to maintain the context of the conversation.
+
+The Chatbot application will utilize a Streamlit sidebar to upload and select PDF documents from the Amazon S3 bucket.
+The Dockerfile contains the instructions to build the Docker image for the Streamlit application.
