@@ -57,3 +57,5 @@ The _generate_chat_ function contains the main logic for the chatbot application
 
 The Chatbot application will utilize a Streamlit sidebar to upload and select PDF documents from the Amazon S3 bucket.
 The Dockerfile contains the instructions to build the Docker image for the Streamlit application.
+
+The _template.yaml_ file deploys the Streamlit application in an ECS Cluster with the Fargate launch type.
