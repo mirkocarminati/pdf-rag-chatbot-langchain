@@ -1,0 +1,11 @@
+version=0.1
+[default.global.parameters]
+stack_name = "ChatbotStack"
+
+[default.deploy.parameters]
+region = "us-west-2"
+s3_bucket = "deploy-assets-xsdkec"
+s3_prefix = "ca-lab"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+tags = "project=\"ca-labs\" stage=\"development\""

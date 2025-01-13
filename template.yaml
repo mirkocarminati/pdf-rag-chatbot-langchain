@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+
+# Parameters
+Parameters:
+  ImageURI:
+    Type: String
+    Description: The URI of the image to deploy
+    Default: "165631625012.dkr.ecr.us-west-2.amazonaws.com/pdf-chatbot-lab:latest"
+
+  VPC:
+    Type: String
+    Default: "vpc-054c3d052bdfc944d"
+
+  PublicSubnet:
+    Type: String
+    Default: "subnet-0a90447f095cbf6c8"
+
+Resources:
+  DocumentBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "documents-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  DocumentBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      PolicyDocument:
+        Id: PublicReadPolicy
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${DocumentBucket}/*"
+      Bucket: !Ref DocumentBucket
+
+  EmbeddingQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 3600
+
+  DocumentTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      KeySchema:
+        - AttributeName: document_id
+          KeyType: HASH
+        - AttributeName: created
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: document_id
+          AttributeType: S
+        - AttributeName: created
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+
+  ExtractMetadata:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ExtractMetadata
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/lambdas:extract-metadata-latest"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole"
+      PackageType: Image
+      Environment:
+        Variables:
+          DOCUMENT_TABLE: !Ref DocumentTable
+          QUEUE: !GetAtt EmbeddingQueue.QueueName
+          BUCKET: !Sub "documents-${AWS::AccountId}"
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocumentBucket
+            Events:
+              - s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .pdf
+
+  GenerateEmbeddings:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GenerateEmbeddings
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/lambdas:generate-embeddings-latest"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole"
+      PackageType: Image
+      Timeout: 180
+      MemorySize: 1024
+      Environment:
+        Variables:
+          DOCUMENT_TABLE: !Ref DocumentTable
+          BUCKET: !Ref DocumentBucket
+      Events:
+        EmbeddingQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmbeddingQueue.Arn
+            BatchSize: 1
+
+# ECS resources
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow streamlit app traffic
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0 
+          IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          Description: Streamlit app port
+        - CidrIp: 0.0.0.0/0 
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          Description: HTTP port
+        - CidrIp: 0.0.0.0/0 
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          Description: HTTPS port
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0 
+          IpProtocol: "-1"
+          Description: Allow all outbound
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: streamlit-cluster
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      DesiredCount: 1
+      TaskDefinition: !Ref ECSTaskDef
+      LaunchType: FARGATE
+      ServiceName: streamlit-service
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          Subnets:
+            - !Ref PublicSubnet
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      DeploymentController:
+        Type: ECS
+      ServiceConnectConfiguration:
+        Enabled: false
+
+  ECSTaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 1024
+      Memory: 2048
+      NetworkMode: awsvpc
+      Family: streamlit-task-definition
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ECSExecutionRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ECSTaskRole"
+      ContainerDefinitions:
+        - Name: streamlit
+          Image: !Ref ImageURI 
+          PortMappings:
+            - ContainerPort: 8501
+              Protocol: tcp
+              HostPort: 8501
+              AppProtocol: http
+              Name: streamlit-8501-tcp
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: true
+              awslogs-group: "/ecs/streamlit-task-definition"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Environment:
+            - Name: BUCKET_NAME
+              Value: !Ref DocumentBucket
